@@ -8,14 +8,6 @@ build. It drives a real, signed-in Chrome for you, so there's no copy-paste, no 
 through the web app, and **no API keys**. It's [oracle](https://github.com/steipete/oracle),
 but for design instead of ChatGPT.
 
-<p align="center">
-  <a href="media/auteur-demo.mp4">
-    <img src="media/auteur-poster.png" alt="auteur — watch the 25-second demo" width="820">
-  </a>
-  <br>
-  <em>▶ <a href="media/auteur-demo.mp4">Watch the 25-second demo</a></em>
-</p>
-
 ```console
 $ auteur "A pricing page for a SaaS app, three tiers, light theme, one accent color"
 › Creating project…
