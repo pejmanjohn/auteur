@@ -1,31 +1,38 @@
 ---
 name: auteur
-description: Generate a UI/design by sending a prompt to claude.ai/design and getting a ready-to-implement handoff back. Use when a task needs a visual/UI design, mockup, landing page, component, or HTML page generated before implementing it.
+description: Generate a UI/design — landing page, pricing page, dashboard, form, empty state, component, mockup — by sending a prompt to claude.ai/design via the auteur CLI, then implement the handoff it returns. Use whenever a task needs a visual/UI design produced before (or instead of) writing the markup by hand.
+argument-hint: "[what to design]"
+allowed-tools: Bash(auteur:*), WebFetch
 ---
 
-# auteur
+# auteur — design with Claude, implement the handoff
 
-auteur runs a design prompt through **claude.ai/design** (via a signed-in browser it
-automates for you) and returns the exact **"Send to Claude Code" handoff** — a URL plus
-an `Implement:` line — that you then act on. No API keys; it uses the browser session.
+`auteur` runs a design prompt through [claude.ai/design](https://claude.ai/design) (driving a
+signed-in browser, no API keys) and prints the **"Send to Claude Code" handoff** — a URL plus an
+`Implement:` line. Your job is to run it and then build what it returns.
 
 ## When to use
 
-Reach for auteur when the user wants something *designed* before it's built: a landing
-page, pricing page, dashboard, empty state, form, marketing section, component, etc.
-auteur gets you a polished, self-contained design + a handoff so you can implement it.
+Reach for auteur whenever the user wants something **designed** before it's built: a landing
+page, pricing page, dashboard, empty state, form, marketing section, component, or mockup. It
+returns a polished, self-contained design plus an implementation-ready handoff.
 
-## Usage
+## How to run it
 
-```bash
-auteur "<describe the design you want>"
-```
-
-Example:
+Run the CLI with the user's request as the prompt. In Claude Code, the text after `/auteur` is
+the request; otherwise use what the user described.
 
 ```bash
-auteur "A pricing page for a SaaS app: three tiers, monthly/annual toggle, light theme"
+auteur "<the design request>" --out ./designs
 ```
+
+- `--out <dir>` saves the generated files locally (handy if you want to read/adapt them directly).
+- `--json` gives machine-readable output (`handoff`, `files`, `projectUrl`) if you'd rather parse it.
+
+Generation takes ~30–120s; auteur prints live progress and exits when done. If the user gave no
+specific request (bare `/auteur`), ask what they'd like designed before running.
+
+## What you get back, and what to do with it
 
 auteur prints a handoff like:
 
@@ -34,22 +41,24 @@ Fetch this design file, read its readme, and implement the relevant aspects of t
 Implement: Pricing.html
 ```
 
-**Then follow that command**: fetch the URL (it returns the design files + a README with
-implementation notes) and implement the design in the user's project.
+Then **follow that command**:
 
-Useful flags:
+1. **Fetch the handoff URL** (e.g. with WebFetch). It returns the design files and a README with
+   implementation notes — that's the full context, richer than the saved HTML alone.
+2. **Implement** the design in the user's project: translate it into their stack/components,
+   matching the structure and styling from the design + README.
+3. If you passed `--out`, you can also read the saved files locally as a reference.
 
-- `--out <dir>` — also save the generated files locally.
-- `--json` — machine-readable output (`handoff.command`, `files`, `projectUrl`).
+The handoff URL is meant to be fetched **server-side** (WebFetch), not opened in a browser.
 
-## First-time / auth
+## Auth (first run)
 
-If a run reports **not signed in**, tell the user to run `auteur login` once (a Chrome
-window opens; they sign in to Claude). Check status with `auteur doctor`. auteur keeps its
-own Chrome profile — the user's normal browser is untouched.
+If auteur reports **"Not signed in to claude.ai…"**, tell the user to run `auteur login` once (a
+Chrome window opens for them to sign in). Check status anytime with `auteur doctor`. auteur uses
+its own dedicated Chrome profile, so the user's normal browser is untouched.
 
 ## Notes
 
-- Generation takes ~30–120s; auteur waits and reports live progress on stderr.
-- The handoff URL is fetched **server-side** by your agent (e.g. WebFetch), not from the
-  browser — it carries the full design context and README.
+- auteur keeps its Chrome running between calls so repeat runs are fast; `auteur stop` closes it.
+- Treat the design as a starting point: implement faithfully, but adapt to the project's existing
+  conventions, components, and accessibility needs.

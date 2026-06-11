@@ -62,6 +62,7 @@ itself — the same way oracle made "ask GPT-5 Pro" a single command.
 | `auteur login` | Sign in to Claude in auteur's dedicated Chrome profile (one time) |
 | `auteur doctor` | Check Chrome and sign-in status |
 | `auteur stop` | Close auteur's background Chrome |
+| `auteur skill install` | Add the `/auteur` skill to Claude Code and Codex ([details](#type-auteur-in-your-coding-agent)) |
 
 ```bash
 auteur -p "404 page, dark theme, monospace accents" --out ./designs   # also save the files
@@ -101,9 +102,34 @@ Every step runs through the page's own authenticated session (Claude Design's in
 `OmeletteService` API), so auteur is about as reliable as the website itself. The only thing
 done through the visible UI is typing the prompt — Claude builds the full request from there.
 
-## Use it from a coding agent
+## Type `/auteur` in your coding agent
 
-Add this to your `AGENTS.md` / `CLAUDE.md` so an agent reaches for auteur on its own:
+auteur ships a skill so you can invoke it as a first-class command. Install it into both
+Claude Code and Codex with one command:
+
+```bash
+auteur skill install
+```
+
+This symlinks the skill into `~/.claude/skills/auteur` and `~/.codex/skills/auteur` (whichever
+you have). Open a new session, then:
+
+- **Claude Code** — type `/auteur a pricing page for a SaaS app`. It runs auteur and implements
+  the handoff it returns.
+- **Codex** — just ask for a design ("design a pricing page"); Codex reaches for auteur on its
+  own, the same way it uses any skill.
+
+A single `SKILL.md` drives both — both CLIs read the same `name`/`description` frontmatter and
+Markdown. Manage it with:
+
+```bash
+auteur skill              # show where it's installed
+auteur skill install --claude   # or --codex to target just one
+auteur skill install --copy     # copy the files instead of symlinking
+auteur skill uninstall          # remove it
+```
+
+Prefer not to install a skill? Add this to your `AGENTS.md` / `CLAUDE.md` instead:
 
 ```
 - auteur runs a design prompt through claude.ai/design and returns a ready-to-implement
@@ -113,8 +139,8 @@ Add this to your `AGENTS.md` / `CLAUDE.md` so an agent reaches for auteur on its
   `auteur login`.
 ```
 
-The handoff URL is meant to be fetched **server-side** by the agent (e.g. Claude Code's
-`WebFetch`), not from a browser — it carries the full design context and README.
+Either way, the handoff URL is meant to be fetched **server-side** by the agent (e.g. Claude
+Code's `WebFetch`), not from a browser — it carries the full design context and README.
 
 ## Troubleshooting
 

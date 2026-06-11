@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { launchChrome, attachPage, chromeUp, stopChrome, PROFILE_DIR, DEFAULT_PORT, sleep } from "./cdp.js";
 import { runDesign, DESIGN_URL, inject } from "./design.js";
+import { installSkill, uninstallSkill, skillStatus } from "./skill.js";
 
 const C = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -32,6 +33,8 @@ ${C.bold("USAGE")}
   auteur login                       One-time: sign in to claude.ai in auteur's browser profile
   auteur doctor                      Check Chrome + claude.ai sign-in status
   auteur stop                        Close auteur's background Chrome
+  auteur skill install               Add the /auteur skill to Claude Code & Codex
+  auteur skill                       Show where the /auteur skill is installed
 
 ${C.bold("OPTIONS")}
   -p, --prompt <text>    The design prompt (or pass it positionally, or via stdin)
@@ -76,6 +79,10 @@ function parseArgs(argv) {
       case "--headless": opts.headless = true; break;
       case "--quit": opts.quit = true; break;
       case "--json": opts.json = true; break;
+      case "--claude": opts.claude = true; break;
+      case "--codex": opts.codex = true; break;
+      case "--copy": opts.copy = true; break;
+      case "--force": opts.force = true; break;
       default:
         if (a.startsWith("-")) { console.error(C.red(`Unknown option: ${a}`)); process.exit(2); }
         opts._.push(a);
@@ -100,6 +107,7 @@ export async function main(argv = process.argv.slice(2)) {
   if (command === "login") return loginCommand(opts);
   if (command === "doctor") return doctorCommand(opts);
   if (command === "stop" || command === "quit") return stopCommand(opts);
+  if (command === "skill") return skillCommand(opts);
 
   // Default command: run a design.
   let prompt = opts.prompt || (command === "run" ? opts._.slice(1).join(" ") : opts._.join(" "));
@@ -237,6 +245,40 @@ async function stopCommand(opts) {
   }
   await stopChrome({ port: opts.port });
   console.log(C.green("Closed auteur's Chrome."));
+}
+
+function skillCommand(opts) {
+  const sub = opts._[1] || "status";
+  if (sub === "install") {
+    const results = installSkill(opts);
+    for (const r of results) {
+      if (r.action === "skipped") console.log(`  ${C.dim("–")} ${r.target.label}: ${C.dim(r.reason)}`);
+      else console.log(`  ${C.green("✓")} ${r.target.label}: ${r.action} ${C.dim("→ " + r.target.dir)}`);
+    }
+    console.log(C.dim("\n  Open a new session and type ") + C.bold("/auteur") + C.dim(" to use it."));
+    return;
+  }
+  if (sub === "uninstall" || sub === "remove") {
+    for (const r of uninstallSkill(opts)) {
+      const mark = r.action === "removed" ? C.green("✓") : C.dim("–");
+      console.log(`  ${mark} ${r.target.label}: ${r.action}`);
+    }
+    return;
+  }
+  // status (default)
+  console.log(C.bold("auteur skill\n"));
+  const statuses = skillStatus();
+  for (const s of statuses) {
+    const label = s.target.label.padEnd(12);
+    const map = { linked: C.green("linked ✓"), "linked-other": C.red("links elsewhere"), copied: C.green("copied ✓"), absent: C.dim("not installed"), unknown: C.dim("?") };
+    console.log(`  ${label}${map[s.state] || s.state}  ${C.dim(s.target.dir)}`);
+  }
+  const allInstalled = statuses.every((s) => s.state === "linked" || s.state === "copied");
+  if (allInstalled) {
+    console.log(C.dim("\n  Type ") + C.bold("/auteur") + C.dim(" in a new session. Remove with ") + C.bold("auteur skill uninstall") + C.dim("."));
+  } else {
+    console.log(C.dim("\n  Install with ") + C.bold("auteur skill install") + C.dim("  (use --claude or --codex to pick one, --copy to copy instead of symlink)."));
+  }
 }
 
 async function doctorCommand(opts) {
