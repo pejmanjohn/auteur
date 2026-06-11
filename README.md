@@ -2,7 +2,7 @@
 
 > Whisper a design prompt to Claude, get the design back to your coding agent.
 
-auteur is a tiny CLI that turns a one-line prompt into a finished design from
+auteur is a tiny CLI that turns a prompt into a finished design from
 [claude.ai/design](https://claude.ai/design) — and hands it to your coding agent ready to
 build. It drives a real, signed-in Chrome for you, so there's no copy-paste, no clicking
 through the web app, and **no API keys**. It's [oracle](https://github.com/steipete/oracle),
