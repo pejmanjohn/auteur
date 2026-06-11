@@ -33,8 +33,8 @@ them — no human in the loop.
 ## Quickstart
 
 ```bash
-# 1. Install  (requires Node 20+ and Google Chrome)
-npm install -g auteur
+# 1. Install from GitHub  (requires Node 20+ and Google Chrome)
+npm install -g pejmanjohn/auteur
 
 # 2. Sign in once  (opens a Chrome window using auteur's own profile)
 auteur login
