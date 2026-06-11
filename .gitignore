@@ -1,0 +1,4 @@
+node_modules/
+demo-out/
+*.log
+.DS_Store

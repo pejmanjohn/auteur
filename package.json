@@ -1,0 +1,36 @@
+{
+  "name": "auteur",
+  "version": "0.1.0",
+  "description": "Whisper a design prompt to Claude Design and bring the result back to your coding agent — oracle, but for claude.ai/design.",
+  "type": "module",
+  "keywords": ["claude", "design", "cli", "browser-automation", "coding-agent", "ai"],
+  "author": "Pejman Pour-Moezzi",
+  "homepage": "https://github.com/pejmanjohn/auteur#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pejmanjohn/auteur.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pejmanjohn/auteur/issues"
+  },
+  "bin": {
+    "auteur": "bin/auteur.js"
+  },
+  "files": [
+    "bin/**/*",
+    "src/**/*",
+    "skills/**/*",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "chrome-launcher": "^1.1.2",
+    "chrome-remote-interface": "^0.33.2"
+  },
+  "scripts": {
+    "auteur": "node bin/auteur.js"
+  },
+  "license": "MIT"
+}
