@@ -1,4 +1,4 @@
-# auteur 🎬
+# auteur 🧑‍🎨
 
 > Whisper a design prompt to Claude, get the design back to your coding agent.
 
