@@ -28,9 +28,26 @@ auteur "<the design request>" --out ./designs
 
 - `--out <dir>` saves the generated files locally (handy if you want to read/adapt them directly).
 - `--json` gives machine-readable output (`handoff`, `files`, `projectUrl`) if you'd rather parse it.
+- `--project <ref>` designs into an **existing** Claude Design project so the result matches that
+  project's theme/design system, instead of creating a new one.
 
 Generation takes ~30–120s; auteur prints live progress and exits when done. If the user gave no
 specific request (bare `/auteur`), ask what they'd like designed before running.
+
+### Designing into an existing project
+
+When the user wants the design to stay consistent with an existing project — they say things like
+"use the **Skillet** project", "in my Skillet design", or paste a `claude.ai/design/p/...` link —
+pass that reference to `--project`:
+
+```bash
+auteur --project "Skillet" "<the design request>"
+auteur --project "https://claude.ai/design/p/019de1b4-...?file=Skillet.html" "<the design request>"
+```
+
+`--project` accepts a project **name** (exact, case-insensitive), a **URL**, or a bare **id**. If a
+name is unknown or ambiguous, auteur errors and lists the candidate projects with their URLs — relay
+that to the user so they can pick, or use the URL.
 
 ## What you get back, and what to do with it
 

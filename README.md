@@ -67,6 +67,7 @@ itself — the same way oracle made "ask GPT-5 Pro" a single command.
 ```bash
 auteur -p "404 page, dark theme, monospace accents" --out ./designs   # also save the files
 auteur "mobile onboarding screen" --json                              # machine-readable output
+auteur --project "Skillet" "a settings page matching the theme"       # design into an existing project
 echo "a glassy weather widget" | auteur                               # prompt via stdin
 ```
 
@@ -79,7 +80,8 @@ timer) and prints status as it goes.
 |------|-------------|
 | `-p, --prompt <text>` | The design prompt (or pass it positionally, or via stdin) |
 | `-o, --out <dir>` | Write the generated design files to `<dir>` |
-| `--name <name>` | Name the Claude Design project |
+| `--project <ref>` | Design into an **existing** project (name, URL, or id) so it matches that project's theme/design system, instead of creating a new one |
+| `--name <name>` | Name a newly-created project (ignored with `--project`) |
 | `--json` | Emit JSON (`handoff`, `files`, `projectUrl`) instead of prose |
 | `--timeout <sec>` | Max seconds to wait for generation (default `240`) |
 | `--headless` | Launch Chrome headless (no visible window) |
