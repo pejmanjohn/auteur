@@ -1,6 +1,6 @@
 ---
 title: "feat: Multi-variation designs via --variations (native Tweaks)"
-status: active
+status: completed
 date: 2026-06-11
 type: feat
 plan_depth: standard
