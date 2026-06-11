@@ -30,7 +30,8 @@
     "chrome-remote-interface": "^0.33.2"
   },
   "scripts": {
-    "auteur": "node bin/auteur.js"
+    "auteur": "node bin/auteur.js",
+    "test": "node --test test/*.test.js"
   },
   "license": "MIT"
 }

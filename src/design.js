@@ -57,6 +57,14 @@ window.__auteur = (() => {
         throw new Error('CreateProject failed: ' + r.status + ' ' + r.text.slice(0, 200));
       return r.json.projectId;
     },
+    async findProjectsByName(name) {
+      const r = await rpc('ListProjects', {});
+      const items = (r.json && r.json.items) || [];
+      const target = String(name == null ? '' : name).trim().toLowerCase();
+      return items
+        .filter((p) => String(p.name || '').trim().toLowerCase() === target)
+        .map((p) => ({ projectId: p.projectId, name: p.name }));
+    },
     async listFiles(projectId) {
       const r = await rpc('ListFiles', { projectId });
       return (r.json && r.json.entries) || [];
@@ -136,7 +144,7 @@ export function handoffCommand({ token, openFile }) {
  * generated files, and mint a handoff. `page` is a CDP Page (see src/cdp.js).
  * `send` performs the keyboard send (CDP Input); injectable for testing.
  */
-export async function runDesign(page, { prompt, projectName, maxWaitMs = 240000, onStatus = () => {} } = {}) {
+export async function runDesign(page, { prompt, project, projectName, maxWaitMs = 240000, onStatus = () => {} } = {}) {
   if (!prompt || !prompt.trim()) throw new Error("A design prompt is required.");
   onStatus("Opening Claude Design…");
   await page.navigate(DESIGN_URL, { waitMs: 2500 });
@@ -149,15 +157,25 @@ export async function runDesign(page, { prompt, projectName, maxWaitMs = 240000,
     );
   }
 
-  onStatus("Creating project…");
-  const projectId = await page.eval(
-    `return await window.__auteur.createProject(${JSON.stringify(projectName || `auteur ${nowStamp()}`)});`,
-  );
+  // Target an existing project (--project), or create a fresh one (default).
+  const projectId = project
+    ? await resolveProject(page, project, onStatus)
+    : await createNewProject(page, projectName, onStatus);
 
   onStatus("Loading project workspace…");
   await page.navigate(`${DESIGN_URL}/p/${projectId}`, { waitMs: 2500 });
   await inject(page);
   await waitFor(page, `return window.__auteur.focusComposer();`, 20000, 500);
+
+  // Snapshot the project's existing design files so generation completion is
+  // judged against the NEW/changed file, not pre-existing ones. Empty for a
+  // freshly-created project, which preserves the original behavior.
+  const baseline = await page.eval(`
+    const entries = await window.__auteur.listFiles(${JSON.stringify(projectId)});
+    const out = {};
+    for (const f of window.__auteur.designFiles(entries)) out[f.name] = f.version;
+    return out;
+  `).catch(() => ({}));
 
   onStatus("Sending prompt…");
   await page.eval(`window.__auteur.focusComposer(); return true;`);
@@ -180,7 +198,7 @@ export async function runDesign(page, { prompt, projectName, maxWaitMs = 240000,
   }
 
   onStatus("Claude Design is generating…");
-  const files = await waitForGeneration(page, projectId, { maxWaitMs, onStatus });
+  const files = await waitForGeneration(page, projectId, { maxWaitMs, baseline, onStatus });
 
   onStatus("Reading generated files…");
   const collected = [];
@@ -216,13 +234,13 @@ export async function runDesign(page, { prompt, projectName, maxWaitMs = 240000,
  * held steady — either with the busy state cleared, or steady long enough that a
  * lingering busy state no longer matters. Per-tick errors are tolerated.
  */
-export async function waitForGeneration(page, projectId, { maxWaitMs = 240000, onStatus = () => {} } = {}) {
+export async function waitForGeneration(page, projectId, { maxWaitMs = 240000, baseline = {}, onStatus = () => {} } = {}) {
   const start = Date.now();
   const pid = JSON.stringify(projectId);
   let sawGenerating = false;
   let lastSig = null;
   let stableSince = Date.now();
-  let last = { count: 0, generating: false };
+  let lastCount = 0;
 
   while (Date.now() - start < maxWaitMs) {
     await sleep(2000);
@@ -230,30 +248,31 @@ export async function waitForGeneration(page, projectId, { maxWaitMs = 240000, o
     try {
       state = await page.eval(`
         const entries = await window.__auteur.listFiles(${pid});
-        const design = window.__auteur.designFiles(entries);
         return {
           generating: window.__auteur.isGenerating(),
           complete: window.__auteur.turnComplete(),
-          sig: design.map(d => d.name + ':' + (d.version||d.size||'')).sort().join('|'),
-          count: design.length,
+          design: window.__auteur.designFiles(entries),
         };
       `);
     } catch (err) {
       // Transient CDP/eval stall — try again next tick instead of dying.
       continue;
     }
-    last = state;
+    // Only the file(s) this prompt created or changed count as "the design".
+    const generated = selectGenerated(baseline, state.design || []);
+    const sig = generated.map((d) => d.name + ":" + (d.version || d.size || "")).sort().join("|");
+    lastCount = generated.length;
     if (state.generating) sawGenerating = true;
     const now = Date.now();
-    if (state.sig !== lastSig) {
-      lastSig = state.sig;
+    if (sig !== lastSig) {
+      lastSig = sig;
       stableSince = now;
     }
     const stableMs = now - stableSince;
     const elapsed = Math.round((now - start) / 1000);
-    onStatus(`Claude Design is generating… (${elapsed}s, ${state.count} file${state.count === 1 ? "" : "s"})`);
+    onStatus(`Claude Design is generating… (${elapsed}s, ${generated.length} file${generated.length === 1 ? "" : "s"})`);
 
-    if (state.count > 0) {
+    if (generated.length > 0) {
       const settledQuiet = !state.generating && stableMs >= 2500 && (sawGenerating || elapsed > 10);
       const settledHard = stableMs >= 18000; // busy state lingered — accept the stable file
       if (settledQuiet || settledHard) break;
@@ -262,14 +281,77 @@ export async function waitForGeneration(page, projectId, { maxWaitMs = 240000, o
 
   let design = [];
   try {
-    design = await page.eval(`return window.__auteur.designFiles(await window.__auteur.listFiles(${pid}));`);
+    const entries = await page.eval(`return window.__auteur.designFiles(await window.__auteur.listFiles(${pid}));`);
+    design = selectGenerated(baseline, entries);
   } catch {}
   if (!design.length) {
     throw new Error(
-      `Timed out after ${Math.round(maxWaitMs / 1000)}s without a generated design file (last saw ${last.count} design file(s)).`,
+      `Timed out after ${Math.round(maxWaitMs / 1000)}s without a new generated design file (last saw ${lastCount}).`,
     );
   }
   return design;
+}
+
+const UUID_SRC = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+/**
+ * Classify a --project value. A claude.ai/design URL or a bare UUID resolves to
+ * an id directly; anything else is a project name (resolved later via the page's
+ * ListProjects). Pure — no network.
+ */
+export function parseProjectRef(value) {
+  const v = String(value == null ? "" : value).trim();
+  if (!v) throw new Error("Empty --project value.");
+  if (new RegExp(`^${UUID_SRC}$`, "i").test(v)) return { kind: "id", projectId: v.toLowerCase() };
+  const m = v.match(new RegExp(`/p/(${UUID_SRC})`, "i"));
+  if (m) return { kind: "id", projectId: m[1].toLowerCase() };
+  return { kind: "name", name: v };
+}
+
+/**
+ * Design files generated by the current prompt = those that are new (name absent
+ * from the pre-send baseline) or whose version changed. An empty baseline returns
+ * all files, which is exactly the create-new-project path. Pure.
+ */
+export function selectGenerated(baseline, designFiles) {
+  const base = baseline || {};
+  return (designFiles || []).filter(
+    (f) => base[f.name] === undefined || base[f.name] !== f.version,
+  );
+}
+
+/**
+ * Resolve a --project reference (URL, UUID, or name) to a projectId. Names use an
+ * exact, case-insensitive match against ListProjects; zero or multiple matches
+ * are a hard error that lists candidates so the user can re-run precisely.
+ */
+export async function resolveProject(page, project, onStatus = () => {}) {
+  const ref = parseProjectRef(project);
+  if (ref.kind === "id") {
+    onStatus(`Using project ${ref.projectId}…`);
+    return ref.projectId;
+  }
+  const matches = await page.eval(
+    `return await window.__auteur.findProjectsByName(${JSON.stringify(ref.name)});`,
+  );
+  if (!matches.length) {
+    throw new Error(
+      `No Claude Design project named "${ref.name}". Pass the project URL instead, or check the exact name in Claude Design.`,
+    );
+  }
+  if (matches.length > 1) {
+    const list = matches.map((m) => `  • ${m.name} — ${DESIGN_URL}/p/${m.projectId}`).join("\n");
+    throw new Error(`Multiple Claude Design projects named "${ref.name}":\n${list}\nRe-run with the project URL to pick one.`);
+  }
+  onStatus(`Using project "${matches[0].name}"…`);
+  return matches[0].projectId;
+}
+
+async function createNewProject(page, projectName, onStatus = () => {}) {
+  onStatus("Creating project…");
+  return page.eval(
+    `return await window.__auteur.createProject(${JSON.stringify(projectName || `auteur ${nowStamp()}`)});`,
+  );
 }
 
 function primaryFile(files) {
