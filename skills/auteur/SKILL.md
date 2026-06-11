@@ -19,7 +19,18 @@ returns a polished, self-contained design plus an implementation-ready handoff.
 
 ## How to run it
 
-Run the CLI with the user's request as the prompt. In Claude Code, the text after `/auteur` is
+**First, make sure the `auteur` CLI is on PATH.** The skill and the CLI install separately, so a
+machine with this skill may not have the binary yet. Ensure it once (the package name is
+`pejmanjohn/auteur` — a plain `auteur` is an unrelated npm package, do not install that):
+
+```bash
+command -v auteur >/dev/null 2>&1 || npm install -g pejmanjohn/auteur
+```
+
+If that can't run (offline, or a local dev checkout), find the repo and call its binary directly —
+`node <path-to>/auteur/bin/auteur.js` — in place of `auteur` everywhere below.
+
+Then run the CLI with the user's request as the prompt. In Claude Code, the text after `/auteur` is
 the request; otherwise use what the user described.
 
 ```bash

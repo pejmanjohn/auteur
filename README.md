@@ -114,7 +114,9 @@ auteur skill install
 ```
 
 This symlinks the skill into `~/.claude/skills/auteur` and `~/.codex/skills/auteur` (whichever
-you have). Open a new session, then:
+you have). The skill and the `auteur` CLI install separately — make sure the CLI itself is also on
+your `PATH` (`npm install -g pejmanjohn/auteur`, or `npm link` from a clone), or the skill will load
+but `auteur` won't be found. Open a new session, then:
 
 - **Claude Code** — type `/auteur a pricing page for a SaaS app`. It runs auteur and implements
   the handoff it returns.
