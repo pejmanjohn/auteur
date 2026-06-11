@@ -1,6 +1,6 @@
 ---
 title: "feat: Target an existing Claude Design project with --project"
-status: active
+status: completed
 date: 2026-06-11
 type: feat
 plan_depth: standard
