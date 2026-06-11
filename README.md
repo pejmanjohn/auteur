@@ -1,6 +1,6 @@
 # auteur 🧑‍🎨
 
-> Whisper a design prompt to Claude, get the design back to your coding agent.
+> Whisper a design prompt to Claude Design, get the design back to your coding agent.
 
 auteur is a tiny CLI that turns a prompt into a finished design from
 [claude.ai/design](https://claude.ai/design) — and hands it to your coding agent ready to
