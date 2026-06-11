@@ -9,8 +9,10 @@ const RPC_BASE = "/design/anthropic.omelette.api.v1alpha.OmeletteService";
 export const DESIGN_URL = "https://claude.ai/design";
 export const HANDOFF_API_BASE = "https://api.anthropic.com/v1/design";
 
-// Files Claude Design writes as shared scaffolding rather than "the design".
-const RUNTIME_FILES = new Set(["support.js"]);
+// Files Claude Design writes as shared scaffolding rather than "the design":
+// `support.js` (runtime) and `tweaks-panel.jsx` (the Tweaks UI shell it emits
+// whenever a design declares tweakable variants — e.g. with --variations).
+const RUNTIME_FILES = new Set(["support.js", "tweaks-panel.jsx"]);
 
 /**
  * Source for `window.__auteur`, a set of page-context helpers. Injected once per
@@ -114,6 +116,25 @@ window.__auteur = (() => {
       if (btn && !btn.disabled) { btn.click(); return true; }
       return false;
     },
+    answerQuestionnaire() {
+      // New projects often reply with a clarifying questionnaire instead of
+      // generating: several questions, each with a "Decide for me" default, and a
+      // "Continue" button that submits the whole form. Clicking "Decide for me"
+      // only selects (the buttons persist), so we pick every default AND click
+      // Continue. Idempotent across polls until the form submits and generation
+      // begins.
+      const vis = (b) => b.offsetParent !== null && !b.disabled;
+      const txt = (b) => (b.textContent || "").trim();
+      const decide = [...document.querySelectorAll("button")].filter(
+        (b) => /decide for me/i.test(txt(b)) && vis(b),
+      );
+      decide.forEach((b) => b.click());
+      const cont = [...document.querySelectorAll("button")].find(
+        (b) => /^(continue|submit|generate|create design)$/i.test(txt(b)) && vis(b),
+      );
+      if (cont) { cont.click(); return "submitted"; }
+      return decide.length ? "answered" : "";
+    },
   };
 })();
 true;
@@ -144,8 +165,11 @@ export function handoffCommand({ token, openFile }) {
  * generated files, and mint a handoff. `page` is a CDP Page (see src/cdp.js).
  * `send` performs the keyboard send (CDP Input); injectable for testing.
  */
-export async function runDesign(page, { prompt, project, projectName, maxWaitMs = 240000, onStatus = () => {} } = {}) {
+export async function runDesign(page, { prompt, project, projectName, variations, maxWaitMs = 240000, onStatus = () => {} } = {}) {
   if (!prompt || !prompt.trim()) throw new Error("A design prompt is required.");
+  // Augment the prompt to drive Claude Design's native Tweaks variations (no-op for n < 2).
+  const variationsText = variationsInstruction(variations);
+  const sendPrompt = prompt + variationsText;
   onStatus("Opening Claude Design…");
   await page.navigate(DESIGN_URL, { waitMs: 2500 });
   await inject(page);
@@ -182,7 +206,7 @@ export async function runDesign(page, { prompt, project, projectName, maxWaitMs 
   await sleep(250);
   // Type as real keyboard input so the ProseMirror composer registers it, then
   // click the send icon (Enter can insert a newline instead of submitting).
-  await page.insertText(prompt);
+  await page.insertText(sendPrompt);
   await sleep(400);
   const typed = await page.eval(`return window.__auteur.composerText().length;`);
   if (!typed) throw new Error("Could not enter the prompt into the composer.");
@@ -222,6 +246,7 @@ export async function runDesign(page, { prompt, project, projectName, maxWaitMs 
     files: collected,
     primaryFile: openFile,
     handoff,
+    variations: variationsText ? Math.min(Math.max(Math.floor(Number(variations)), VARIATIONS_MIN), VARIATIONS_MAX) : 0,
   };
 }
 
@@ -248,14 +273,25 @@ export async function waitForGeneration(page, projectId, { maxWaitMs = 240000, b
     try {
       state = await page.eval(`
         const entries = await window.__auteur.listFiles(${pid});
+        const generating = window.__auteur.isGenerating();
         return {
-          generating: window.__auteur.isGenerating(),
+          generating,
           complete: window.__auteur.turnComplete(),
           design: window.__auteur.designFiles(entries),
+          // Auto-answer a clarifying questionnaire (common on new projects) so the
+          // design actually gets generated instead of waiting forever.
+          decided: generating ? "" : window.__auteur.answerQuestionnaire(),
         };
       `);
     } catch (err) {
       // Transient CDP/eval stall — try again next tick instead of dying.
+      continue;
+    }
+    if (state.decided) {
+      onStatus(state.decided === "submitted"
+        ? "Answered Claude Design's questions — generating…"
+        : "Answering Claude Design's questions (Decide for me)…");
+      stableSince = Date.now();
       continue;
     }
     // Only the file(s) this prompt created or changed count as "the design".
@@ -317,6 +353,28 @@ export function selectGenerated(baseline, designFiles) {
   const base = baseline || {};
   return (designFiles || []).filter(
     (f) => base[f.name] === undefined || base[f.name] !== f.version,
+  );
+}
+
+export const VARIATIONS_MIN = 2;
+export const VARIATIONS_MAX = 5;
+
+/**
+ * Prompt augmentation that drives Claude Design's native Tweaks flow: ask for N
+ * flippable variants baked into ONE design (there is no variations API — the
+ * product itself declares tweak variants from a prompt). Returns "" for n < 2 so
+ * the default path is untouched; clamps n to [VARIATIONS_MIN, VARIATIONS_MAX].
+ */
+export function variationsInstruction(n) {
+  const count = Math.floor(Number(n));
+  if (!Number.isFinite(count) || count < VARIATIONS_MIN) return "";
+  const v = Math.min(count, VARIATIONS_MAX);
+  // Single line on purpose: a newline in the composer can submit the prompt early
+  // (Enter = send), so the augmentation must stay in one paragraph.
+  return (
+    ` — give me ${v} distinct variations of this in one design: make the hero and main ` +
+    `layout a tweakable variant with ${v} options so I can flip between all ${v} in the Tweaks ` +
+    `panel. Keep it one design; don't create separate files.`
   );
 }
 

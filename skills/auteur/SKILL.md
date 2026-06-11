@@ -39,6 +39,9 @@ auteur "<the design request>" --out ./designs
 
 - `--out <dir>` saves the generated files locally (handy if you want to read/adapt them directly).
 - `--json` gives machine-readable output (`handoff`, `files`, `projectUrl`) if you'd rather parse it.
+- `--variations N` (2–5) produces **N flippable variants in ONE design** via Claude Design's native
+  Tweaks panel — use this for A/B/options work instead of running auteur multiple times (multiple
+  runs into one project overwrite each other and don't become flippable variants).
 - `--project <ref>` designs into an **existing** Claude Design project so the result matches that
   project's theme/design system, instead of creating a new one.
 

@@ -68,6 +68,7 @@ itself — the same way oracle made "ask GPT-5 Pro" a single command.
 auteur -p "404 page, dark theme, monospace accents" --out ./designs   # also save the files
 auteur "mobile onboarding screen" --json                              # machine-readable output
 auteur --project "Skillet" "a settings page matching the theme"       # design into an existing project
+auteur --variations 3 "a hero section for a coffee brand"             # 3 variants to flip in the Tweaks panel
 echo "a glassy weather widget" | auteur                               # prompt via stdin
 ```
 
@@ -80,6 +81,7 @@ timer) and prints status as it goes.
 |------|-------------|
 | `-p, --prompt <text>` | The design prompt (or pass it positionally, or via stdin) |
 | `-o, --out <dir>` | Write the generated design files to `<dir>` |
+| `--variations <n>` | Generate **N flippable variants in one design** (2–5) via Claude Design's Tweaks panel, instead of separate runs that overwrite each other |
 | `--project <ref>` | Design into an **existing** project (name, URL, or id) so it matches that project's theme/design system, instead of creating a new one |
 | `--name <name>` | Name a newly-created project (ignored with `--project`) |
 | `--json` | Emit JSON (`handoff`, `files`, `projectUrl`) instead of prose |

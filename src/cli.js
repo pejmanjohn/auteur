@@ -41,6 +41,8 @@ ${C.bold("OPTIONS")}
   -o, --out <dir>        Write generated design files to <dir>
       --project <ref>    Design into an EXISTING project (name, URL, or id) to match its
                          theme/design system, instead of creating a new one
+      --variations <n>   Generate N flippable variants in ONE design (2-5), via Claude
+                         Design's Tweaks panel — instead of separate runs that overwrite
       --name <name>      Name for a newly-created project (ignored with --project)
       --port <n>         Chrome DevTools port (default ${DEFAULT_PORT})
       --headless         Run Chrome headless when launching (default: visible)
@@ -63,6 +65,9 @@ ${C.bold("EXAMPLES")}
   ${C.dim("# Keep a new design consistent with an existing project's theme:")}
   auteur --project "Skillet" "A settings page matching the existing style"
 
+  ${C.dim("# Get 3 variations to flip between in the Tweaks panel:")}
+  auteur --variations 3 "A landing page hero for a coffee brand"
+
 ${C.dim("auteur drives a dedicated Chrome profile (" + PROFILE_DIR + ") just like")}
 ${C.dim("oracle drives ChatGPT — your normal browser and logins are untouched.")}
 `);
@@ -80,6 +85,7 @@ function parseArgs(argv) {
       case "-o": case "--out": opts.out = next(); break;
       case "--name": opts.name = next(); break;
       case "--project": opts.project = next(); break;
+      case "--variations": opts.variations = Number(next()); break;
       case "--port": opts.port = Number(next()); break;
       case "--timeout": opts.timeout = Number(next()); break;
       case "--headless": opts.headless = true; break;
@@ -169,6 +175,7 @@ async function runCommand(prompt, opts) {
       prompt,
       project: opts.project, // reuse an existing project (--name is ignored when set)
       projectName: opts.name,
+      variations: opts.variations, // N>=2 -> one design with N flippable Tweaks variants
       maxWaitMs: opts.timeout * 1000,
       onStatus: status,
     });
@@ -194,6 +201,7 @@ async function runCommand(prompt, opts) {
       files: result.files.map((f) => ({ name: f.name, path: f.path, bytes: f.content.length })),
       writtenPaths,
       handoff: result.handoff,
+      variations: result.variations || 0,
     }, null, 2));
     return;
   }
@@ -205,6 +213,9 @@ async function runCommand(prompt, opts) {
   console.log("");
   console.log(`  ${C.bold("Project")}   ${result.projectUrl}`);
   console.log(`  ${C.bold("Files")}     ${result.files.map((f) => `${f.name} ${C.dim("(" + humanBytes(f.content.length) + ")")}`).join("\n            ")}`);
+  if (result.variations) {
+    console.log(`  ${C.bold("Variants")}  ${result.variations} — flip between them in the Tweaks panel: ${C.dim(result.projectUrl)}`);
+  }
   if (writtenPaths.length) {
     console.log(`  ${C.bold("Saved")}     ${writtenPaths.join("\n            ")}`);
   }
