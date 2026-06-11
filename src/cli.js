@@ -39,7 +39,9 @@ ${C.bold("USAGE")}
 ${C.bold("OPTIONS")}
   -p, --prompt <text>    The design prompt (or pass it positionally, or via stdin)
   -o, --out <dir>        Write generated design files to <dir>
-      --name <name>      Name for the Claude Design project
+      --project <ref>    Design into an EXISTING project (name, URL, or id) to match its
+                         theme/design system, instead of creating a new one
+      --name <name>      Name for a newly-created project (ignored with --project)
       --port <n>         Chrome DevTools port (default ${DEFAULT_PORT})
       --headless         Run Chrome headless when launching (default: visible)
       --quit             Close Chrome when done (default: keep it running for fast reuse)
@@ -58,6 +60,9 @@ ${C.bold("EXAMPLES")}
   ${C.dim("# Save the files locally too:")}
   auteur -p "Dashboard empty state" --out ./designs
 
+  ${C.dim("# Keep a new design consistent with an existing project's theme:")}
+  auteur --project "Skillet" "A settings page matching the existing style"
+
 ${C.dim("auteur drives a dedicated Chrome profile (" + PROFILE_DIR + ") just like")}
 ${C.dim("oracle drives ChatGPT — your normal browser and logins are untouched.")}
 `);
@@ -74,6 +79,7 @@ function parseArgs(argv) {
       case "-p": case "--prompt": opts.prompt = next(); break;
       case "-o": case "--out": opts.out = next(); break;
       case "--name": opts.name = next(); break;
+      case "--project": opts.project = next(); break;
       case "--port": opts.port = Number(next()); break;
       case "--timeout": opts.timeout = Number(next()); break;
       case "--headless": opts.headless = true; break;
@@ -161,6 +167,7 @@ async function runCommand(prompt, opts) {
   const result = await withChrome(opts, async (page) => {
     return runDesign(page, {
       prompt,
+      project: opts.project, // reuse an existing project (--name is ignored when set)
       projectName: opts.name,
       maxWaitMs: opts.timeout * 1000,
       onStatus: status,
