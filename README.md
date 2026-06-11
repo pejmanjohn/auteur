@@ -11,7 +11,7 @@ but for design instead of ChatGPT.
 ```console
 $ auteur "A pricing page for a SaaS app, three tiers, light theme, one accent color"
 › Creating project…
-› Claude is designing… (38s, 1 file)
+› Claude Design is generating… (38s, 1 file)
 › Minting handoff…
 
   ✦ Claude Design is done.

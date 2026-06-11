@@ -179,7 +179,7 @@ export async function runDesign(page, { prompt, projectName, maxWaitMs = 240000,
     }
   }
 
-  onStatus("Claude is designing…");
+  onStatus("Claude Design is generating…");
   const files = await waitForGeneration(page, projectId, { maxWaitMs, onStatus });
 
   onStatus("Reading generated files…");
@@ -251,7 +251,7 @@ export async function waitForGeneration(page, projectId, { maxWaitMs = 240000, o
     }
     const stableMs = now - stableSince;
     const elapsed = Math.round((now - start) / 1000);
-    onStatus(`Claude is designing… (${elapsed}s, ${state.count} file${state.count === 1 ? "" : "s"})`);
+    onStatus(`Claude Design is generating… (${elapsed}s, ${state.count} file${state.count === 1 ? "" : "s"})`);
 
     if (state.count > 0) {
       const settledQuiet = !state.generating && stableMs >= 2500 && (sawGenerating || elapsed > 10);
